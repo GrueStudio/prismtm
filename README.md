@@ -1,4 +1,4 @@
-# Prism Task Manager (ptm)
+# Prism Task Manager (prsm)
 
 > *Like a prism breaks white light into its component colors, Prism Task Manager breaks complex projects into their constituent tasks, making the invisible work visible and manageable.*
 
@@ -6,7 +6,7 @@
 
 [![Version](https://img.shields.io/badge/version-0.1.0--dev-orange)](https://github.com/yourusername/prism-task-manager)
 [![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://python.org)
-[![License](https://img.shields.io/badge/license-GNU-green.svg)](LICENSE)
+[![License: GPL v2](https://img.shields.io/badge/License-GPL_v2-blue.svg)](LICENSE)
 
 ## 🎯 What is Prism?
 
@@ -24,23 +24,23 @@ Prism Task Manager bridges the gap between high-level project vision and daily a
 pip install prism-task-manager
 
 # Initialize project
-ptm init
+prsm init
 
 # Navigate your project like a filesystem
-ptm milestone              # List milestones
-ptm block                  # List blocks in current milestone
-ptm task                   # List tasks in current block
+prsm milestone              # List milestones
+prsm block                  # List blocks in current milestone
+prsm task                   # List tasks in current block
 
 # Add new work
-ptm milestone add "core-features" --version 1.0.x
-ptm block add "authentication"
-ptm task add "user-login"
-ptm subtask add "validate credentials"
+prsm milestone add "core-features" --version 1.0.x
+prsm block add "authentication"
+prsm task add "user-login"
+prsm subtask add "validate credentials"
 
 # Track time automatically
-ptm start                  # Start timer on current subtask
-ptm next                   # Move to next item (auto-starts timer)
-ptm status                 # See full project overview
+prsm start                  # Start timer on current subtask
+prsm next                   # Move to next item (auto-starts timer)
+prsm status                 # See full project overview
 ```
 
 ## 🌟 Key Features
@@ -97,7 +97,7 @@ pip install -e .
 pytest
 
 # Check our own progress
-ptm status
+prsm status
 ```
 
 ## 📄 License

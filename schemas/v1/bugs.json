@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Prism Bug Tracking",
+  "type": "object",
+  "required": ["bugs", "stats"],
+  "properties": {
+    "bugs": {
+      "type": "object",
+      "patternProperties": {
+        "^BUG-[A-Z0-9]+-\\d{4}-\\d+$": { "$ref": "#/definitions/bug" }
+      }
+    },
+    "stats": {
+      "type": "object",
+      "required": ["total_bugs", "last_updated"],
+      "properties": {
+        "total_bugs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "open": { "type": "integer", "minimum": 0 },
+        "investigating": { "type": "integer", "minimum": 0 },
+        "found": { "type": "integer", "minimum": 0 },
+        "fixed": { "type": "integer", "minimum": 0 },
+        "closed": { "type": "integer", "minimum": 0 },
+        "by_priority": {
+          "type": "object",
+          "properties": {
+            "critical": { "type": "integer", "minimum": 0 },
+            "high": { "type": "integer", "minimum": 0 },
+            "medium": { "type": "integer", "minimum": 0 },
+            "low": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "last_updated": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  },
+  "definitions": {
+    "bug": {
+      "type": "object",
+      "required": ["title", "status", "priority", "created_at", "updated_at", "reporter"],
+      "properties": {
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "status": {
+          "type": "string",
+          "enum": ["open", "investigating", "found", "fixed", "closed"]
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["low", "medium", "high", "critical"]
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "reporter": { "type": "string", "default": "self" },
+        "description": { "type": "string" },
+        "steps_to_reproduce": { "type": "string" },
+        "expected_behavior": { "type": "string" },
+        "actual_behavior": { "type": "string" },
+        "environment": {
+          "type": "object",
+          "properties": {
+            "os": { "type": "string" },
+            "python": { "type": "string" },
+            "prsm_version": { "type": "string" }
+          }
+        },
+        "location": { "type": ["string", "null"] },
+        "fix_orphan_id": { "type": ["string", "null"] },
+        "investigation_notes": { "type": "string" }
+      }
+    }
+  }
+}

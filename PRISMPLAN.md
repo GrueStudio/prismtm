@@ -43,10 +43,10 @@
 
 ##### **🔄 0.1.1 - Data Model Design**
 *IN PROGRESS - Current Focus*
-- ⏳ **YAML schema definition** *(Next Task)*
-  - ⏳ Define ptm.yml structure
-  - ⏳ Schema validation rules
-  - ⏳ Migration strategy planning
+- 🔄 **YAML schema definition** *(Next Task)*
+  - ✅ Define .prsm/ structure
+  - ✅ Schema validation rules
+  - 🔄 Migration strategy planning
 - ⏳ Core data structures (Python classes)
   - ⏳ Milestone, Block, Task, Subtask models
   - ⏳ Timer and state management

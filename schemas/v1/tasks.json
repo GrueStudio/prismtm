@@ -1,0 +1,212 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Prism Task Hierarchy",
+  "type": "object",
+  "required": ["state", "milestones", "orphans"],
+  "properties": {
+    "state": {
+      "type": "object",
+      "required": ["milestone"],
+      "properties": {
+        "milestone": { "type": "string" },
+        "block": { "type": ["string", "null"] },
+        "task": { "type": ["string", "null"] },
+        "subtask": { "type": ["string", "null"] },
+        "timer": {
+          "type": "object",
+          "required": ["active"],
+          "properties": {
+            "active": { "type": "boolean" },
+            "target_type": {
+              "type": "string",
+              "enum": ["milestone", "block", "task", "subtask"]
+            },
+            "target_id": { "type": "string" },
+            "started_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "session_time": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "paused": { "type": "boolean", "default": false },
+            "pause_reason": { "type": ["string", "null"] },
+            "pause_started": {
+              "type": ["string", "null"],
+              "format": "date-time"
+            }
+          }
+        },
+        "today": {
+          "type": "object",
+          "properties": {
+            "date": {
+              "type": "string",
+              "format": "date"
+            },
+            "total_time": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "sessions": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "pauses": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "milestones": {
+      "type": "object",
+      "patternProperties": {
+        "^\\d+\\.\\d+\\.x$": { "$ref": "#/definitions/milestone" }
+      }
+    },
+    "orphans": {
+      "type": "object",
+      "patternProperties": {
+        "^orphan-\\d+$": { "$ref": "#/definitions/orphan" }
+      }
+    }
+  },
+  "definitions": {
+    "milestone": {
+      "type": "object",
+      "required": ["name", "status", "created_at", "blocks"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "active", "paused", "completed", "cancelled"]
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "completed_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "description": { "type": "string" },
+        "total_time": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blocks": {
+          "type": "object",
+          "patternProperties": {
+            "^block-\\d+$": { "$ref": "#/definitions/block" }
+          }
+        }
+      }
+    },
+    "block": {
+      "type": "object",
+      "required": ["name", "version", "status", "created_at", "tasks"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "active", "paused", "completed", "cancelled"]
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "completed_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "description": { "type": "string" },
+        "total_time": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tasks": {
+          "type": "object",
+          "patternProperties": {
+            "^task-\\d+$": { "$ref": "#/definitions/task" }
+          }
+        }
+      }
+    },
+    "task": {
+      "type": "object",
+      "required": ["name", "status", "created_at", "subtasks"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "active", "paused", "completed", "cancelled"]
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "completed_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "total_time": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "subtasks": {
+          "type": "object",
+          "patternProperties": {
+            "^subtask-\\d+$": { "$ref": "#/definitions/subtask" }
+          }
+        }
+      }
+    },
+    "subtask": {
+      "type": "object",
+      "required": ["name", "status", "created_at"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "active", "paused", "completed", "cancelled"]
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "completed_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "total_time": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "orphan": {
+      "type": "object",
+      "required": ["name", "created_at", "priority"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["low", "medium", "high", "critical"]
+        },
+        "description": { "type": "string" }
+      }
+    }
+  }
+}
