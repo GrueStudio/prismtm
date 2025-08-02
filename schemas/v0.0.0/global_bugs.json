@@ -1,0 +1,103 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "global-bugs-v0.0.0.json",
+  "title": "Prism Global Bugs Schema v0.0.0",
+  "description": "Schema for a user-wide list of bugs from projects with global bug discovery enabled.",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "integer",
+        "description": "The unique ID of the bug."
+      },
+      "project_name": {
+        "type": "string",
+        "description": "The name of the project this bug belongs to."
+      },
+      "project_bug_id": {
+        "type": "integer",
+        "description": "The original bug ID from the project's local bugs.yml file."
+      },
+      "title": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200,
+        "description": "A brief, descriptive title for the bug."
+      },
+      "status": {
+        "type": "string",
+        "enum": ["open", "investigating", "found", "fixed", "closed"],
+        "description": "The current status of the bug."
+      },
+      "priority": {
+        "type": "string",
+        "enum": ["low", "medium", "high", "critical"],
+        "description": "The priority level of the bug."
+      },
+      "created_at": {
+        "type": "string",
+        "format": "date-time",
+        "description": "The timestamp when the bug was created."
+      },
+      "updated_at": {
+        "type": "string",
+        "format": "date-time",
+        "description": "The timestamp when the bug was last updated."
+      },
+      "reporter": {
+        "type": "string",
+        "default": "self",
+        "description": "The person who reported the bug."
+      },
+      "description": {
+        "type": "string",
+        "description": "A detailed description of the bug."
+      },
+      "steps_to_reproduce": {
+        "type": "string",
+        "description": "The steps to reliably reproduce the bug."
+      },
+      "expected_behavior": {
+        "type": "string",
+        "description": "The behavior that was expected."
+      },
+      "actual_behavior": {
+        "type": "string",
+        "description": "The actual behavior that occurred."
+      },
+      "environment": {
+        "type": "object",
+        "properties": {
+          "os": { "type": "string" },
+          "python": { "type": "string" },
+          "prsm_version": { "type": "string" }
+        },
+        "description": "The environment in which the bug was found."
+      },
+      "location": {
+        "type": ["string", "null"],
+        "description": "The file or code location where the bug was found."
+      },
+      "fix_orphan_id": {
+        "type": ["string", "null"],
+        "description": "An identifier for the fix if the bug is an orphan."
+      },
+      "investigation_notes": {
+        "type": "string",
+        "description": "Notes from the investigation of the bug."
+      }
+    },
+    "required": [
+      "id",
+      "project_name",
+      "project_bug_id",
+      "title",
+      "status",
+      "priority",
+      "created_at",
+      "updated_at",
+      "reporter"
+    ]
+  }
+}
