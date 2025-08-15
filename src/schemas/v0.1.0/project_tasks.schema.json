@@ -1,0 +1,449 @@
+{
+  "$defs": {
+    "Block": {
+      "properties": {
+        "version": {
+          "description": "The version the block is for; such as 0.1.1 or 3.2.15.",
+          "title": "Version",
+          "type": "string"
+        },
+        "reason": {
+          "description": "Why do we need this block?",
+          "title": "Reason",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/TaskStatus",
+          "default": "not_started",
+          "description": "Current status of the block"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When the block was started.",
+          "title": "Started At"
+        },
+        "finished_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When the block was finished.",
+          "title": "Finished At"
+        },
+        "time_spent": {
+          "anyOf": [
+            {
+              "format": "duration",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How long the block took.",
+          "title": "Time Spent"
+        },
+        "tasks": {
+          "description": "List of block tasks",
+          "items": {
+            "$ref": "#/$defs/Task"
+          },
+          "title": "Tasks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "version",
+        "reason"
+      ],
+      "title": "Block",
+      "type": "object"
+    },
+    "Milestone": {
+      "properties": {
+        "versions": {
+          "description": "The versions that encompass this milestone; such as 0.1.x, or 3.2.x.",
+          "title": "Versions",
+          "type": "string"
+        },
+        "reason": {
+          "description": "Why do we need this milestone?",
+          "title": "Reason",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/TaskStatus",
+          "default": "not_started",
+          "description": "Current status of the milestone"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When the milestone was started.",
+          "title": "Started At"
+        },
+        "finished_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When the milestone was finished.",
+          "title": "Finished At"
+        },
+        "time_spent": {
+          "anyOf": [
+            {
+              "format": "duration",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How long the milestone took.",
+          "title": "Time Spent"
+        },
+        "blocks": {
+          "description": "List of milestone blocks",
+          "items": {
+            "$ref": "#/$defs/Block"
+          },
+          "title": "Blocks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "versions",
+        "reason"
+      ],
+      "title": "Milestone",
+      "type": "object"
+    },
+    "Orphan": {
+      "properties": {
+        "id": {
+          "description": "Unique identifier for the orphan.",
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "description": "The human readable identifier of the orphan.",
+          "title": "Name",
+          "type": "string"
+        },
+        "reason": {
+          "description": "Why do we need this orphan task?",
+          "title": "Reason",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/TaskStatus",
+          "default": "not_started",
+          "description": "Current status of the orphan"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "reason"
+      ],
+      "title": "Orphan",
+      "type": "object"
+    },
+    "Phase": {
+      "properties": {
+        "name": {
+          "description": "The human readable identifier of the phase. ie. pre-alpha, alpha, beta, release",
+          "title": "Name",
+          "type": "string"
+        },
+        "version_match": {
+          "description": "The versions that match the phase such as 0.8+.* or 1.*.*",
+          "title": "Version Match",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/TaskStatus",
+          "default": "not_started",
+          "description": "Current status of the phase"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When the phase was started",
+          "title": "Started At"
+        },
+        "finished_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When the phase was finished",
+          "title": "Finished At"
+        },
+        "time_spent": {
+          "anyOf": [
+            {
+              "format": "duration",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How long the phase took",
+          "title": "Time Spent"
+        },
+        "milestones": {
+          "description": "List of phase milestones",
+          "items": {
+            "$ref": "#/$defs/Milestone"
+          },
+          "title": "Milestones",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "version_match"
+      ],
+      "title": "Phase",
+      "type": "object"
+    },
+    "SubTask": {
+      "properties": {
+        "name": {
+          "description": "The human readable identifier of the sub-task.",
+          "title": "Name",
+          "type": "string"
+        },
+        "reason": {
+          "description": "Why do we need this sub-task?",
+          "title": "Reason",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/TaskStatus",
+          "default": "not_started",
+          "description": "Current status of the sub-task"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When the sub-task was started.",
+          "title": "Started At"
+        },
+        "finished_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When the sub-task was finished.",
+          "title": "Finished At"
+        },
+        "time_spent": {
+          "anyOf": [
+            {
+              "format": "duration",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How long the sub-task took.",
+          "title": "Time Spent"
+        }
+      },
+      "required": [
+        "name",
+        "reason"
+      ],
+      "title": "SubTask",
+      "type": "object"
+    },
+    "Task": {
+      "properties": {
+        "name": {
+          "description": "The human readable identifier of the task.",
+          "title": "Name",
+          "type": "string"
+        },
+        "reason": {
+          "description": "Why do we need this task?",
+          "title": "Reason",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/TaskStatus",
+          "default": "not_started",
+          "description": "Current status of the task"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When the task was started.",
+          "title": "Started At"
+        },
+        "finished_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When the task was finished.",
+          "title": "Finished At"
+        },
+        "time_spent": {
+          "anyOf": [
+            {
+              "format": "duration",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How long the task took.",
+          "title": "Time Spent"
+        },
+        "subtasks": {
+          "description": "List of task sub-tasks",
+          "items": {
+            "$ref": "#/$defs/SubTask"
+          },
+          "title": "Subtasks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "reason"
+      ],
+      "title": "Task",
+      "type": "object"
+    },
+    "TaskStatus": {
+      "enum": [
+        "not_started",
+        "in_progress",
+        "completed",
+        "blocked",
+        "on_hold"
+      ],
+      "title": "TaskStatus",
+      "type": "string"
+    }
+  },
+  "description": "The Full Task Tree for a project.",
+  "properties": {
+    "current_task_path": {
+      "description": "The taskpath to the currently active task",
+      "title": "Current Task Path",
+      "type": "string"
+    },
+    "nav_path": {
+      "description": "The taskpath to where the user is currently looking at",
+      "title": "Nav Path",
+      "type": "string"
+    },
+    "phases": {
+      "description": "List of project phases",
+      "items": {
+        "$ref": "#/$defs/Phase"
+      },
+      "title": "Phases",
+      "type": "array"
+    },
+    "orphans": {
+      "description": "List of orphan tasks",
+      "items": {
+        "$ref": "#/$defs/Orphan"
+      },
+      "title": "Orphans",
+      "type": "array"
+    }
+  },
+  "required": [
+    "current_task_path",
+    "nav_path"
+  ],
+  "title": "TaskTree",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

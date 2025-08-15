@@ -7,15 +7,30 @@ import argparse
 import logging
 import importlib.util
 from typing import List, Dict, Type, Optional
+try:
+    from importlib.resources import files
+except ImportError:
+    # Python &lt; 3.9 fallback
+    from importlib_resources import files
 
 # Import the abstract base class to check against
-from migration import Migration, MigrationData
+from .migration import Migration, MigrationData
 
 # Configure logging for better feedback
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # --- Constants and Configuration ---
-SCHEMA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'schemas')
+def get_schema_dir():
+    """Get schema directory, handling both development and installed package."""
+    try:
+        # Try to use bundled schemas from installed package
+        schema_files = files('prism_task_manager') / 'schemas'
+        return str(schema_files)
+    except (ImportError, FileNotFoundError):
+        # Fallback to development path
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)), 'schemas')
+
+SCHEMA_DIR = get_schema_dir()
 MIGRATIONS_DIR = os.path.join(SCHEMA_DIR, 'migrations')
 
 GLOBAL_DATA_DIR = os.path.join(os.path.expanduser('~'), '.local', 'share', 'prismtm')
@@ -177,35 +192,57 @@ class MigrationEngine:
             if os.path.exists(backup_path):
                 os.remove(backup_path)
 
-    def run_local_migration(self):
+    def migrate_project_files(self, target_version: str) -> bool:
         """Migrates all local project files in the .prsm directory."""
         logging.info("Starting local project migration...")
         if not os.path.exists(LOCAL_PROJECT_DIR):
             logging.warning(f"Local project directory '{LOCAL_PROJECT_DIR}' not found. Exiting.")
-            return
+            return False
 
         # Example: Assume version is read from a metadata file.
         current_version = 'v0.0.0'
 
         files_to_migrate = ['project.yml', 'bugs.yml', 'tasks.yml']
+        success = True
         for file_name in files_to_migrate:
             file_path = os.path.join(LOCAL_PROJECT_DIR, file_name)
-            self.migrate_file(file_path, current_version)
+            try:
+                self.migrate_file(file_path, current_version)
+            except Exception as e:
+                logging.error(f"Failed to migrate {file_path}: {e}")
+                success = False
 
-    def run_global_migration(self):
+        return success
+
+    def migrate_user_files(self, target_version: str) -> bool:
         """Migrates all global files in the user's shared directory."""
         logging.info("Starting global file migration...")
         if not os.path.exists(GLOBAL_DATA_DIR):
             logging.warning(f"Global data directory '{GLOBAL_DATA_DIR}' not found. Exiting.")
-            return
+            return False
 
         # Example: Assume version is read from a metadata file.
         current_version = 'v0.0.0'
 
         files_to_migrate = ['global_bugs.yml', 'global_projects.yml']
+        success = True
         for file_name in files_to_migrate:
             file_path = os.path.join(GLOBAL_DATA_DIR, file_name)
-            self.migrate_file(file_path, current_version)
+            try:
+                self.migrate_file(file_path, current_version)
+            except Exception as e:
+                logging.error(f"Failed to migrate {file_path}: {e}")
+                success = False
+
+        return success
+
+    def run_local_migration(self):
+        """Migrates all local project files in the .prsm directory."""
+        return self.migrate_project_files(self.latest_version)
+
+    def run_global_migration(self):
+        """Migrates all global files in the user's shared directory."""
+        return self.migrate_user_files(self.latest_version)
 
 def main():
     """Main function to handle command-line arguments."""

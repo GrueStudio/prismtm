@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Prism Orphan Tasks",
+  "description": "Schema for orphans.yml - orphaned tasks and ideas",
+  "type": "object",
+  "properties": {
+    "orphans": {
+      "type": "object",
+      "patternProperties": {
+        "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$": {
+          "$ref": "#/definitions/orphan"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": ["orphans"],
+  "additionalProperties": false,
+  "definitions": {
+    "orphan": {
+      "type": "object",
+      "properties": {
+        "id": {"type": "string", "format": "uuid"},
+        "title": {"type": "string", "minLength": 1},
+        "description": {"type": "string"},
+        "task_type": {"type": "string", "enum": ["task", "subtask"]},
+        "tags": {
+          "type": "array",
+          "items": {"type": "string"},
+          "uniqueItems": true
+        },
+        "priority": {"type": "integer"},
+        "estimated_time_seconds": {"type": ["number", "null"], "minimum": 0},
+        "suggested_phase": {"type": ["string", "null"]},
+        "suggested_milestone": {"type": ["string", "null"]},
+        "suggested_block": {"type": ["string", "null"]},
+        "created_at": {"type": "string", "format": "date-time"},
+        "updated_at": {"type": "string", "format": "date-time"}
+      },
+      "required": ["id", "title", "task_type", "tags", "priority", "created_at", "updated_at"],
+      "additionalProperties": false
+    }
+  }
+}

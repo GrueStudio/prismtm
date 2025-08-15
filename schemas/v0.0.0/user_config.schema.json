@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Prism User Configuration",
+  "description": "Schema for user config.yml - user-wide settings",
+  "type": "object",
+  "properties": {
+    "display": {
+      "type": "object",
+      "properties": {
+        "show_colors": { "type": "boolean" },
+        "show_progress_bars": { "type": "boolean" },
+        "default_time_format": { "type": "string", "enum": ["12h", "24h"] }
+      },
+      "required": ["show_colors", "show_progress_bars", "default_time_format"],
+      "additionalProperties": false
+    },
+    "behavior": {
+      "type": "object",
+      "properties": {
+        "auto_start_timer": { "type": "boolean" },
+        "confirm_destructive_actions": { "type": "boolean" }
+      },
+      "required": ["auto_start_timer", "confirm_destructive_actions"],
+      "additionalProperties": false
+    },
+    "bug_import": {
+      "type": "object",
+      "properties": {
+        "import_duplicates": { "type": "boolean" },
+        "auto_categorize_bugs": { "type": "boolean" }
+      },
+      "required": ["import_duplicates", "auto_categorize_bugs"],
+      "additionalProperties": false
+    },
+    "reporting": {
+      "type": "object",
+      "properties": {
+        "default_report_period": {
+          "type": "string",
+          "enum": ["daily", "weekly", "monthly"]
+        },
+        "include_orphans_in_reports": { "type": "boolean" }
+      },
+      "required": ["default_report_period", "include_orphans_in_reports"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["display", "behavior", "bug_import", "reporting"],
+  "additionalProperties": false
+}
