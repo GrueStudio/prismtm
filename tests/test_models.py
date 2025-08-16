@@ -2,7 +2,7 @@
 
 import pytest
 from datetime import datetime, timedelta
-from src.models import (
+from src.prismtm.models import (
     TaskStatus, BugStatus, BugSeverity, TaskPath,
     TaskTree, ProjectBugList, GlobalBugList
 )

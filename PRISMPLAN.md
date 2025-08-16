@@ -47,10 +47,12 @@
   - ✅ Define .prsm/ structure
   - ✅ Schema validation rules
   - ✅ Migration strategy planning
-- 🔄 Core data structures (Python classes)
+- ✅ Core data structures (Python classes)
   - ✅ Milestone, Block, Task, Subtask models
-  - 🔄 Timer and state management
+  - ✅ Timer and state management
   - ✅ Orphan task structures
+  - 🔄 Documentation
+  - ⏳ File management strategy
 - ⏳ File management strategy
   - ⏳ YAML I/O operations
   - ⏳ Atomic file updates

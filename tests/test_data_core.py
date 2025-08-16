@@ -8,9 +8,9 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 from datetime import datetime
 
-from src.data import DataCore
-from src.version import APP_SCHEMA_VERSION
-from src.models import TaskTree, ProjectBugList, GlobalBugList, TaskStatus, BugStatus
+from src.prismtm.data import DataCore
+from src.prismtm.version import APP_SCHEMA_VERSION
+from src.prismtm.models import TaskTree, ProjectBugList, GlobalBugList, TaskStatus, BugStatus
 
 
 class TestDataCore:
