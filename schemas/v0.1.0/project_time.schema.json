@@ -1,0 +1,126 @@
+{
+  "$defs": {
+    "ActiveTimeSession": {
+      "properties": {
+        "started_at": {
+          "description": "When the current session was started",
+          "format": "date-time",
+          "title": "Started At",
+          "type": "string"
+        },
+        "target_path": {
+          "description": "The task path this session is targeting",
+          "title": "Target Path",
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional description of what work is being done",
+          "title": "Description"
+        }
+      },
+      "required": [
+        "started_at",
+        "target_path"
+      ],
+      "title": "ActiveTimeSession",
+      "type": "object"
+    },
+    "SessionType": {
+      "enum": [
+        "work",
+        "break",
+        "pause"
+      ],
+      "title": "SessionType",
+      "type": "string"
+    },
+    "TimeSession": {
+      "properties": {
+        "started_at": {
+          "description": "When the session was started",
+          "format": "date-time",
+          "title": "Started At",
+          "type": "string"
+        },
+        "ended_at": {
+          "description": "When the session was ended",
+          "format": "date-time",
+          "title": "Ended At",
+          "type": "string"
+        },
+        "target_path": {
+          "description": "The task path this session was targeting",
+          "title": "Target Path",
+          "type": "string"
+        },
+        "duration": {
+          "description": "Duration of the session",
+          "format": "duration",
+          "title": "Duration",
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional description of what work was done",
+          "title": "Description"
+        },
+        "session_type": {
+          "$ref": "#/$defs/SessionType",
+          "default": "work",
+          "description": "Type of session - work, break, or pause"
+        }
+      },
+      "required": [
+        "started_at",
+        "ended_at",
+        "target_path",
+        "duration"
+      ],
+      "title": "TimeSession",
+      "type": "object"
+    }
+  },
+  "description": "Project-scoped time tracking system that logs work sessions independently from task tree structure.",
+  "properties": {
+    "current_session": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ActiveTimeSession"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Currently active time tracking session, null if no session is active"
+    },
+    "sessions": {
+      "description": "Historical log of completed time tracking sessions",
+      "items": {
+        "$ref": "#/$defs/TimeSession"
+      },
+      "title": "Sessions",
+      "type": "array"
+    }
+  },
+  "title": "ProjectTimeTracker",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

@@ -10,17 +10,16 @@ import importlib.util
 import inspect
 import argparse
 from pathlib import Path
-import sys
 from pydantic import BaseModel
 
 # Try to import version from package __init__.py
 try:
-    from src.version import VERSION, APP_SCHEMA_VERSION
-    DEFAULT_VERSION = APP_SCHEMA_VERSION
+    from src.prismtm.version import VERSION, APP_SCHEMA_VERSION
+    DEFAULT_VERSION = VERSION
 except (ImportError, ValueError):
     try:
-        from src.version import VERSION, APP_SCHEMA_VERSION
-        DEFAULT_VERSION = APP_SCHEMA_VERSION
+        from src.prismtm.version import VERSION, APP_SCHEMA_VERSION
+        DEFAULT_VERSION = VERSION
     except ImportError:
         DEFAULT_VERSION = "0.0.0"
 print("Default schema version:", DEFAULT_VERSION)
@@ -29,7 +28,7 @@ print("Default schema version:", DEFAULT_VERSION)
 class SchemaGenerator:
     def __init__(self, base_version=None):
         self.base_version = base_version or DEFAULT_VERSION
-        self.schemas_dir = Path("src/schemas")
+        self.schemas_dir = Path("schemas")
 
     def generate_schema_from_pydantic_model(self, cls):
         """Generate JSON schema from Pydantic model."""
@@ -38,10 +37,7 @@ class SchemaGenerator:
 
         # Generate schema using Pydantic's built-in method
         schema = cls.model_json_schema()
-
-        # Ensure we're using the correct JSON Schema version
         schema["$schema"] = "https://json-schema.org/draft/2020-12/schema"
-
         return schema
 
     def find_schema_classes(self, models_module):
@@ -69,9 +65,9 @@ class SchemaGenerator:
     def generate_schemas(self, version=None):
         """Generate all schemas from models.py."""
         version_to_use = version or self.base_version
-        models_path = Path("src/models.py")
+        models_path = Path("src/prismtm/models.py")
         if not models_path.exists():
-            raise FileNotFoundError("src/models.py not found")
+            raise FileNotFoundError("src/prismtm/models.py not found")
 
         # Import the models module
         spec = importlib.util.spec_from_file_location("models", models_path)
@@ -127,7 +123,7 @@ class SchemaGenerator:
 
         print(f"Schema generation complete! Files saved to {version_dir}")
         print(f"\n⚠️  IMPORTANT: If this is a new schema version, remember to update")
-        print(f"   APP_SCHEMA_VERSION in src/version.py to '{version_to_use}'")
+        print(f"   APP_SCHEMA_VERSION in src/prismtm/version.py to '{version_to_use}'")
         print(f"   Current APP_SCHEMA_VERSION: {DEFAULT_VERSION}")
 
 

@@ -3,7 +3,6 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import Optional, List, Dict, Union
 import re
-from dateutil.parser import parse as parse_date
 
 class BugSeverity(Enum):
     LOW = "low"
@@ -167,7 +166,6 @@ class TaskTree(BaseModel):
         status: TaskStatus = Field(default=TaskStatus.NOT_STARTED, description="Current status of the phase")
         started_at: Optional[datetime] = Field(default=None, description="When the phase was started")
         finished_at: Optional[datetime] = Field(default=None, description="When the phase was finished")
-        time_spent: Optional[timedelta] = Field(default=None, description="How long the phase took")
         milestones: List['TaskTree.Milestone'] = Field(
             default_factory=list,
             description="List of phase milestones"
@@ -189,7 +187,6 @@ class TaskTree(BaseModel):
         status: TaskStatus = Field(default=TaskStatus.NOT_STARTED, description="Current status of the milestone")
         started_at: Optional[datetime] = Field(default=None, description="When the milestone was started.")
         finished_at: Optional[datetime] = Field(default=None, description="When the milestone was finished.")
-        time_spent: Optional[timedelta] = Field(default=None, description="How long the milestone took.")
         blocks: List['TaskTree.Block'] = Field(
             default_factory=list,
             description="List of milestone blocks"
@@ -218,7 +215,6 @@ class TaskTree(BaseModel):
         status: TaskStatus = Field(default=TaskStatus.NOT_STARTED, description="Current status of the block")
         started_at: Optional[datetime] = Field(default=None, description="When the block was started.")
         finished_at: Optional[datetime] = Field(default=None, description="When the block was finished.")
-        time_spent: Optional[timedelta] = Field(default=None, description="How long the block took.")
         tasks: List['TaskTree.Task'] = Field(
             default_factory=list,
             description="List of block tasks"
@@ -247,7 +243,6 @@ class TaskTree(BaseModel):
         status: TaskStatus = Field(default=TaskStatus.NOT_STARTED, description="Current status of the task")
         started_at: Optional[datetime] = Field(default=None, description="When the task was started.")
         finished_at: Optional[datetime] = Field(default=None, description="When the task was finished.")
-        time_spent: Optional[timedelta] = Field(default=None, description="How long the task took.")
         subtasks: List['TaskTree.SubTask'] = Field(
             default_factory=list,
             description="List of task sub-tasks"
@@ -269,7 +264,6 @@ class TaskTree(BaseModel):
         status: TaskStatus = Field(default=TaskStatus.NOT_STARTED, description="Current status of the sub-task")
         started_at: Optional[datetime] = Field(default=None, description="When the sub-task was started.")
         finished_at: Optional[datetime] = Field(default=None, description="When the sub-task was finished.")
-        time_spent: Optional[timedelta] = Field(default=None, description="How long the sub-task took.")
 
         @model_validator(mode='after')
         def validate_dates(self):
@@ -373,3 +367,99 @@ class GlobalBugList(BaseModel):
             return v
 
 GlobalBugList.model_rebuild()
+
+class SessionType(Enum):
+    WORK = "work"
+    BREAK = "break"
+    PAUSE = "pause"
+
+class ProjectTimeTracker(BaseModel):
+    """Project-scoped time tracking system that logs work sessions independently from task tree structure."""
+
+    _schema_scope: str = "project"
+    _schema_filename: str = "time"
+
+    current_session: Optional['ProjectTimeTracker.ActiveTimeSession'] = Field(
+        default=None,
+        description="Currently active time tracking session, null if no session is active"
+    )
+    sessions: List['ProjectTimeTracker.TimeSession'] = Field(
+        default_factory=list,
+        description="Historical log of completed time tracking sessions"
+    )
+
+    def start_session(self, target_path: str, description: Optional[str] = None) -> 'ActiveTimeSession':
+        """Start a new time tracking session."""
+        if self.current_session:
+            raise ValueError("A session is already active. Stop the current session first.")
+
+        self.current_session = self.ActiveTimeSession(
+            started_at=datetime.now(),
+            target_path=target_path,
+            description=description
+        )
+        return self.current_session
+
+    def stop_session(self, description: Optional[str] = None, session_type: SessionType = SessionType.WORK) -> 'TimeSession':
+        """Stop the current session and add it to the log."""
+        if not self.current_session:
+            raise ValueError("No active session to stop.")
+
+        ended_at = datetime.now()
+        duration = ended_at - self.current_session.started_at
+
+        completed_session = self.TimeSession(
+            started_at=self.current_session.started_at,
+            ended_at=ended_at,
+            target_path=self.current_session.target_path,
+            duration=duration,
+            description=description or self.current_session.description,
+            session_type=session_type
+        )
+
+        self.sessions.append(completed_session)
+        self.current_session = None
+        return completed_session
+
+    def get_total_time_for_path(self, target_path: str) -> timedelta:
+        """Get total time spent on a specific path."""
+        total = timedelta()
+        for session in self.sessions:
+            if session.target_path == target_path and session.session_type == SessionType.WORK:
+                total += session.duration
+        return total
+
+    class ActiveTimeSession(BaseModel):
+        started_at: datetime = Field(description="When the current session was started")
+        target_path: str = Field(description="The task path this session is targeting")
+        description: Optional[str] = Field(default=None, description="Optional description of what work is being done")
+
+        @field_validator('target_path')
+        @classmethod
+        def validate_target_path(cls, v):
+            if v and not TaskPath.validate_path(v):
+                raise ValueError(f"Invalid task path format: {v}")
+            return v
+
+    class TimeSession(BaseModel):
+        started_at: datetime = Field(description="When the session was started")
+        ended_at: datetime = Field(description="When the session was ended")
+        target_path: str = Field(description="The task path this session was targeting")
+        duration: timedelta = Field(description="Duration of the session")
+        description: Optional[str] = Field(default=None, description="Optional description of what work was done")
+        session_type: SessionType = Field(default=SessionType.WORK, description="Type of session - work, break, or pause")
+
+        @field_validator('target_path')
+        @classmethod
+        def validate_target_path(cls, v):
+            if v and not TaskPath.validate_path(v):
+                raise ValueError(f"Invalid task path format: {v}")
+            return v
+
+        @model_validator(mode='after')
+        def validate_dates(self):
+            if self.ended_at < self.started_at:
+                raise ValueError("ended_at must be after started_at")
+            return self
+
+ProjectTimeTracker.model_rebuild()

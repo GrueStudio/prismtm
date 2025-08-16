@@ -48,9 +48,9 @@
   - ✅ Schema validation rules
   - ✅ Migration strategy planning
 - 🔄 Core data structures (Python classes)
-  - 🔄 Milestone, Block, Task, Subtask models
-  - ⏳ Timer and state management
-  - ⏳ Orphan task structures
+  - ✅ Milestone, Block, Task, Subtask models
+  - 🔄 Timer and state management
+  - ✅ Orphan task structures
 - ⏳ File management strategy
   - ⏳ YAML I/O operations
   - ⏳ Atomic file updates
