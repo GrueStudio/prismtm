@@ -4,7 +4,8 @@ import pytest
 from datetime import datetime, timedelta
 from src.prismtm.models import (
     TaskStatus, BugStatus, BugSeverity, TaskPath,
-    TaskTree, ProjectBugList, GlobalBugList
+    TaskTree, ProjectBugList, GlobalBugList,
+    ProjectTimeTracker, SessionType
 )
 
 
@@ -64,7 +65,8 @@ class TestSubTask:
         )
         assert subtask.name == "Test subtask"
         assert subtask.status == TaskStatus.NOT_STARTED
-        assert subtask.time_spent is None
+        assert subtask.started_at is None
+        assert subtask.finished_at is None
 
     def test_time_validation(self):
         """Test time validation."""
@@ -298,3 +300,206 @@ class TestGlobalBugList:
         assert bug.project == "test-project"
         assert bug.title == "Global test bug"
         assert bug.status == BugStatus.OPEN
+
+
+class TestProjectTimeTracker:
+    """Test ProjectTimeTracker model."""
+
+    def test_empty_time_tracker(self):
+        """Test creating an empty time tracker."""
+        tracker = ProjectTimeTracker()
+        assert tracker.current_session is None
+        assert len(tracker.sessions) == 0
+
+    def test_start_session(self):
+        """Test starting a time tracking session."""
+        tracker = ProjectTimeTracker()
+        session = tracker.start_session("pa/0.1.x/0.1.1/task1", "Working on feature")
+
+        assert tracker.current_session is not None
+        assert tracker.current_session.target_path == "pa/0.1.x/0.1.1/task1"
+        assert tracker.current_session.description == "Working on feature"
+        assert isinstance(tracker.current_session.started_at, datetime)
+
+    def test_start_session_when_active(self):
+        """Test starting a session when one is already active."""
+        tracker = ProjectTimeTracker()
+        tracker.start_session("pa/0.1.x/0.1.1/task1")
+
+        with pytest.raises(ValueError, match="A session is already active"):
+            tracker.start_session("pa/0.1.x/0.1.1/task2")
+
+    def test_stop_session(self):
+        """Test stopping a time tracking session."""
+        tracker = ProjectTimeTracker()
+        tracker.start_session("pa/0.1.x/0.1.1/task1", "Working on feature")
+
+        # Wait a tiny bit to ensure duration > 0
+        import time
+        time.sleep(0.01)
+
+        completed_session = tracker.stop_session("Completed feature work")
+
+        assert tracker.current_session is None
+        assert len(tracker.sessions) == 1
+        assert completed_session.target_path == "pa/0.1.x/0.1.1/task1"
+        assert completed_session.description == "Completed feature work"
+        assert completed_session.session_type == SessionType.WORK
+        assert completed_session.duration > timedelta(0)
+
+    def test_stop_session_when_none_active(self):
+        """Test stopping a session when none is active."""
+        tracker = ProjectTimeTracker()
+
+        with pytest.raises(ValueError, match="No active session to stop"):
+            tracker.stop_session()
+
+    def test_get_total_time_for_path(self):
+        """Test calculating total time for a specific path."""
+        tracker = ProjectTimeTracker()
+
+        # Add some completed sessions
+        now = datetime.now()
+        session1 = ProjectTimeTracker.TimeSession(
+            started_at=now,
+            ended_at=now + timedelta(hours=1),
+            target_path="pa/0.1.x/0.1.1/task1",
+            duration=timedelta(hours=1),
+            session_type=SessionType.WORK
+        )
+        session2 = ProjectTimeTracker.TimeSession(
+            started_at=now,
+            ended_at=now + timedelta(minutes=30),
+            target_path="pa/0.1.x/0.1.1/task1",
+            duration=timedelta(minutes=30),
+            session_type=SessionType.WORK
+        )
+        # Break session should not be counted
+        session3 = ProjectTimeTracker.TimeSession(
+            started_at=now,
+            ended_at=now + timedelta(minutes=15),
+            target_path="pa/0.1.x/0.1.1/task1",
+            duration=timedelta(minutes=15),
+            session_type=SessionType.BREAK
+        )
+
+        tracker.sessions = [session1, session2, session3]
+
+        total_time = tracker.get_total_time_for_path("pa/0.1.x/0.1.1/task1")
+        assert total_time == timedelta(hours=1, minutes=30)
+
+        # Different path should return zero
+        other_total = tracker.get_total_time_for_path("pa/0.1.x/0.1.1/task2")
+        assert other_total == timedelta(0)
+
+
+class TestActiveTimeSession:
+    """Test ActiveTimeSession model."""
+
+    def test_valid_active_session(self):
+        """Test creating a valid active session."""
+        now = datetime.now()
+        session = ProjectTimeTracker.ActiveTimeSession(
+            started_at=now,
+            target_path="pa/0.1.x/0.1.1/task1",
+            description="Working on feature"
+        )
+
+        assert session.started_at == now
+        assert session.target_path == "pa/0.1.x/0.1.1/task1"
+        assert session.description == "Working on feature"
+
+    def test_invalid_target_path(self):
+        """Test validation of target path."""
+        with pytest.raises(ValueError, match="Invalid task path format"):
+            ProjectTimeTracker.ActiveTimeSession(
+                started_at=datetime.now(),
+                target_path="invalid//path"
+            )
+
+
+class TestTimeSession:
+    """Test TimeSession model."""
+
+    def test_valid_time_session(self):
+        """Test creating a valid time session."""
+        now = datetime.now()
+        later = now + timedelta(hours=1)
+        duration = timedelta(hours=1)
+
+        session = ProjectTimeTracker.TimeSession(
+            started_at=now,
+            ended_at=later,
+            target_path="pa/0.1.x/0.1.1/task1",
+            duration=duration,
+            description="Completed feature work",
+            session_type=SessionType.WORK
+        )
+
+        assert session.started_at == now
+        assert session.ended_at == later
+        assert session.target_path == "pa/0.1.x/0.1.1/task1"
+        assert session.duration == duration
+        assert session.description == "Completed feature work"
+        assert session.session_type == SessionType.WORK
+
+    def test_invalid_time_order(self):
+        """Test validation of time order."""
+        now = datetime.now()
+        earlier = now - timedelta(hours=1)
+
+        with pytest.raises(ValueError, match="ended_at must be after started_at"):
+            ProjectTimeTracker.TimeSession(
+                started_at=now,
+                ended_at=earlier,
+                target_path="pa/0.1.x/0.1.1/task1",
+                duration=timedelta(hours=1)
+            )
+
+    def test_invalid_target_path(self):
+        """Test validation of target path."""
+        now = datetime.now()
+        later = now + timedelta(hours=1)
+
+        with pytest.raises(ValueError, match="Invalid task path format"):
+            ProjectTimeTracker.TimeSession(
+                started_at=now,
+                ended_at=later,
+                target_path="invalid//path",
+                duration=timedelta(hours=1)
+            )
+
+    def test_different_session_types(self):
+        """Test different session types."""
+        now = datetime.now()
+        later = now + timedelta(minutes=30)
+
+        # Work session
+        work_session = ProjectTimeTracker.TimeSession(
+            started_at=now,
+            ended_at=later,
+            target_path="pa/0.1.x/0.1.1/task1",
+            duration=timedelta(minutes=30),
+            session_type=SessionType.WORK
+        )
+        assert work_session.session_type == SessionType.WORK
+
+        # Break session
+        break_session = ProjectTimeTracker.TimeSession(
+            started_at=now,
+            ended_at=later,
+            target_path="pa/0.1.x/0.1.1/task1",
+            duration=timedelta(minutes=30),
+            session_type=SessionType.BREAK
+        )
+        assert break_session.session_type == SessionType.BREAK
+
+        # Pause session
+        pause_session = ProjectTimeTracker.TimeSession(
+            started_at=now,
+            ended_at=later,
+            target_path="pa/0.1.x/0.1.1/task1",
+            duration=timedelta(minutes=30),
+            session_type=SessionType.PAUSE
+        )
+        assert pause_session.session_type == SessionType.PAUSE

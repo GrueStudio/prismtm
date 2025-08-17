@@ -12,7 +12,6 @@ from src.prismtm.data import DataCore
 from src.prismtm.version import APP_SCHEMA_VERSION
 from src.prismtm.models import TaskTree, ProjectBugList, GlobalBugList, TaskStatus, BugStatus
 
-
 class TestDataCore:
     """Test DataCore functionality."""
 
@@ -22,12 +21,20 @@ class TestDataCore:
             # Mock schema directory structure
             mock_dir = MagicMock()
             mock_dir.exists.return_value = True
-            mock_dir.iterdir.return_value = [
-                MagicMock(is_dir=lambda: True, name='v0.0.0'),
-                MagicMock(is_dir=lambda: True, name='v0.1.0'),
-                MagicMock(is_dir=lambda: True, name='v1.0.0'),
-                MagicMock(is_dir=lambda: False, name='readme.txt'),  # Should be ignored
-            ]
+            mock_dirs = []
+            for name in ['v0.0.0', 'v0.1.0', 'v1.0.0']:
+                mock_subdir = MagicMock()
+                mock_subdir.is_dir.return_value = True
+                mock_subdir.name = name
+                mock_dirs.append(mock_subdir)
+
+            # Add non-directory item
+            mock_file = MagicMock()
+            mock_file.is_dir.return_value = False
+            mock_file.name = 'readme.txt'
+            mock_dirs.append(mock_file)
+
+            mock_dir.iterdir.return_value = mock_dirs
             mock_schema_dir.return_value = mock_dir
 
             versions = DataCore.get_schema_versions()
@@ -141,16 +148,16 @@ class TestDataCore:
             # Mock schema loading and validation
             with patch.object(DataCore, 'get_schema_dir') as mock_schema_dir, \
                  patch.object(DataCore, 'get_schema_versions') as mock_versions, \
-                 patch('src.data_core.validate_data_against_schema') as mock_validate:
+                 patch('src.prismtm.validate.validate_file_schema') as mock_validate:
 
                 mock_versions.return_value = ['0.1.0']
-                mock_validate.return_value = (True, [])
+                mock_validate.return_value = True
 
                 # Test project data validation
-                is_valid, version, errors = DataCore.validate_project_data(temp_path)
+                is_valid, version, errors = DataCore.validate_project_data()
 
                 assert is_valid is True
-                assert version == '0.1.0'
+                assert version == APP_SCHEMA_VERSION
                 assert errors == []
 
     def test_check_migration_needed(self):
@@ -166,7 +173,7 @@ class TestDataCore:
             result = DataCore.check_migration_needed()
             assert result == {'project': True, 'user': True}
 
-    @patch('src.data_core.MigrationEngine')
+    @patch('src.prismtm.data.MigrationEngine')
     def test_migrate_project_data(self, mock_engine_class):
         """Test project data migration."""
         mock_engine = MagicMock()
@@ -178,7 +185,7 @@ class TestDataCore:
         assert result is True
         mock_engine.migrate_project_files.assert_called_once_with('1.0.0')
 
-    @patch('src.data_core.MigrationEngine')
+    @patch('src.prismtm.data.MigrationEngine')
     def test_migrate_user_data(self, mock_engine_class):
         """Test user data migration."""
         mock_engine = MagicMock()
@@ -217,7 +224,7 @@ class TestDataCore:
 
     def test_task_path_parsing(self):
         """Test TaskPath utility functionality."""
-        from src.models import TaskPath
+        from src.prismtm.models import TaskPath
 
         # Valid path parsing
         path = TaskPath("pa/0.1.x/0.1.0/setup")
