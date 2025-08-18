@@ -8,6 +8,7 @@ checking schema versions, and coordinating migrations.
 import os
 import json
 import yaml
+import tempfile
 from pathlib import Path
 from typing import Tuple, Optional, Dict, Any, List, Union
 from packaging import version
@@ -21,6 +22,7 @@ from .migrate import MigrationEngine
 from .validate import find_schema_version, validate_file_schema
 from .version import APP_SCHEMA_VERSION
 from .models import TaskTree, ProjectBugList, GlobalBugList, ProjectTimeTracker
+
 class FileScope:
     """Provides access to model files within a scope (project or user)."""
 
@@ -117,6 +119,8 @@ class DataCore:
 
     # Required user files
     USER_FILES = {
+        "data.yml": "user_data.schema.json",
+        "config.yml": "user_config.schema.json",
         "bugs.yml": "user_bugs.schema.json"
     }
 
@@ -161,7 +165,7 @@ class DataCore:
     @classmethod
     def save_yaml_file(cls, data: Dict[str, Any], file_path: Union[str, Path], create_dirs: bool = True) -> bool:
         """
-        Serialize and save data to a YAML file.
+        Serialize and save data to a YAML file using atomic updates.
 
         Args:
             data: Data to serialize
@@ -176,12 +180,35 @@ class DataCore:
         if create_dirs:
             file_path.parent.mkdir(parents=True, exist_ok=True)
 
+        temp_file = None
         try:
-            with open(file_path, 'w', encoding='utf-8') as f:
-                yaml.safe_dump(data, f, default_flow_style=False, sort_keys=False, indent=2)
+            # Create temporary file in the same directory as target
+            with tempfile.NamedTemporaryFile(
+                mode='w',
+                encoding='utf-8',
+                dir=file_path.parent,
+                prefix=f".{file_path.name}.",
+                suffix='.tmp',
+                delete=False
+            ) as temp_file:
+                # Write data to temporary file
+                yaml.safe_dump(data, temp_file, default_flow_style=False, sort_keys=False, indent=2)
+                temp_file.flush()
+                os.fsync(temp_file.fileno())  # Ensure data is written to disk
+                temp_path = temp_file.name
+
+            # Atomically replace the original file
+            os.replace(temp_path, file_path)
             return True
-        except (yaml.YAMLError, IOError) as e:
+
+        except (yaml.YAMLError, IOError, OSError) as e:
             print(f"Error saving YAML file {file_path}: {e}")
+            # Clean up temporary file if it exists
+            if temp_file and hasattr(temp_file, 'name'):
+                try:
+                    os.unlink(temp_file.name)
+                except OSError:
+                    pass
             return False
 
     @classmethod
@@ -209,7 +236,7 @@ class DataCore:
     @classmethod
     def save_json_file(cls, data: Dict[str, Any], file_path: Union[str, Path], create_dirs: bool = True, indent: int = 2) -> bool:
         """
-        Serialize and save data to a JSON file.
+        Serialize and save data to a JSON file using atomic updates.
 
         Args:
             data: Data to save
@@ -225,12 +252,35 @@ class DataCore:
         if create_dirs:
             file_path.parent.mkdir(parents=True, exist_ok=True)
 
+        temp_file = None
         try:
-            with open(file_path, 'w', encoding='utf-8') as f:
-                json.dump(data, f, indent=indent, ensure_ascii=False)
+            # Create temporary file in the same directory as target
+            with tempfile.NamedTemporaryFile(
+                mode='w',
+                encoding='utf-8',
+                dir=file_path.parent,
+                prefix=f".{file_path.name}.",
+                suffix='.tmp',
+                delete=False
+            ) as temp_file:
+                # Write data to temporary file
+                json.dump(data, temp_file, indent=indent, ensure_ascii=False)
+                temp_file.flush()
+                os.fsync(temp_file.fileno())  # Ensure data is written to disk
+                temp_path = temp_file.name
+
+            # Atomically replace the original file
+            os.replace(temp_path, file_path)
             return True
-        except (json.JSONEncodeError, IOError) as e:
+
+        except (json.JSONEncodeError, IOError, OSError) as e:
             print(f"Error saving JSON file {file_path}: {e}")
+            # Clean up temporary file if it exists
+            if temp_file and hasattr(temp_file, 'name'):
+                try:
+                    os.unlink(temp_file.name)
+                except OSError:
+                    pass
             return False
 
     @classmethod
