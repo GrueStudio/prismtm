@@ -51,10 +51,9 @@
   - ✅ Milestone, Block, Task, Subtask models
   - ✅ Timer and state management
   - ✅ Orphan task structures
-  - 🔄 Documentation
-  - ⏳ File management strategy
-- ⏳ File management strategy
-  - ⏳ YAML I/O operations
+  - ✅ Documentation
+- 🔄 File management strategy
+  - 🔄 YAML I/O operations
   - ⏳ Atomic file updates
   - ⏳ Backup and recovery
 

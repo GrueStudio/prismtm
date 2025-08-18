@@ -9,7 +9,7 @@ import os
 import json
 import yaml
 from pathlib import Path
-from typing import Tuple, Optional, Dict, Any, List
+from typing import Tuple, Optional, Dict, Any, List, Union
 from packaging import version
 try:
     from importlib.resources import files
@@ -20,14 +20,78 @@ except ImportError:
 from .migrate import MigrationEngine
 from .validate import find_schema_version, validate_file_schema
 from .version import APP_SCHEMA_VERSION
+from .models import TaskTree, ProjectBugList, GlobalBugList, ProjectTimeTracker
+class FileScope:
+    """Provides access to model files within a scope (project or user)."""
 
+    def __init__(self, scope_type: str, data_dir: Path, context: 'PrismContext'):
+        self.scope_type = scope_type
+        self.data_dir = data_dir
+        self.context = context
+        self._loaded_models = {}
+
+    def __getattr__(self, name: str):
+        """Dynamically load and return model for requested file."""
+        if name.startswith('_'):
+            raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+
+        # Check if already loaded
+        if name in self._loaded_models:
+            return self._loaded_models[name]
+
+        # Map file names to model classes
+        model_map = {
+            'tasktree': TaskTree,
+            'bugs': ProjectBugList if self.scope_type == 'project' else GlobalBugList,
+            'time': ProjectTimeTracker
+        }
+
+        if name not in model_map:
+            raise AttributeError(f"Unknown file '{name}' for {self.scope_type} scope")
+
+        model_class = model_map[name]
+        file_path = self.data_dir / f"{name}.yml"
+
+        # Load or create model
+        model = model_class.from_yaml_file(str(file_path))
+        if model is None:
+            model = model_class()
+
+        self._loaded_models[name] = model
+        return model
+
+    def save_all(self):
+        """Save all loaded models back to their files."""
+        for name, model in self._loaded_models.items():
+            file_path = self.data_dir / f"{name}.yml"
+            model.to_yaml_file(str(file_path))
+
+class PrismContext:
+    """Main context object providing access to project and user data."""
+
+    def __init__(self):
+        self.project = FileScope('project', DataCore.PROJECT_DATA_DIR, self)
+        self.user = FileScope('user', DataCore.USER_DATA_DIR, self)
+
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit - save all changes."""
+        self.save_all()
+
+    def save_all(self):
+        """Save all changes to both project and user files."""
+        self.project.save_all()
+        self.user.save_all()
 
 class DataCore:
     """
     Central data validation and migration handler.
 
-    Provides version checking, data validation, and migration coordination
-    for both project-scoped and user-scoped data files.
+    Provides version checking, data validation, migration coordination,
+    and serialization/parsing for both project-scoped and user-scoped data files.
     """
 
     # Current application schema version is now imported from version.py
@@ -37,30 +101,229 @@ class DataCore:
     PROJECT_DATA_DIR = Path(".prsm")
     USER_DATA_DIR = Path.home() / ".local" / "share" / "prismtm" / "data"
 
-    # Expected project files
-    PROJECT_FILES = {
-        "project_tree.yaml": "project_tree.schema.json",
-        "project_bugs.yaml": "project_bugs.schema.json",
-        "project_tasks.yaml": "project_tasks.schema.json"
+    # Required project files (flagship feature)
+    REQUIRED_PROJECT_FILES = {
+        "tasktree.yml": "project_tasks.schema.json"
     }
 
-    # Expected user files
-    USER_FILES = {
-        "user_data.yaml": "user_data.schema.json",
-        "user_config.yaml": "user_config.schema.json",
-        "user_bugs.yaml": "user_bugs.schema.json"
+    # Optional project files (user-specific features)
+    OPTIONAL_PROJECT_FILES = {
+        "bugs.yml": "project_bugs.schema.json",
+        "time.yml": "project_time.schema.json"
     }
+
+    # All project files combined
+    PROJECT_FILES = {**REQUIRED_PROJECT_FILES, **OPTIONAL_PROJECT_FILES}
+
+    # Required user files
+    USER_FILES = {
+        "bugs.yml": "user_bugs.schema.json"
+    }
+
+    @classmethod
+    def get_context(cls) -> PrismContext:
+        """
+        Get a context object for accessing project and user data.
+
+        Usage:
+            with DataCore.get_context() as context:
+                context.project.tasktree.current_task_path = "phase1/milestone1/block1/task1"
+                context.user.config.theme = "dark"
+                # Changes are automatically saved on exit
+
+        Returns:
+            PrismContext instance that can be used as a context manager
+        """
+        return PrismContext()
+
+    @classmethod
+    def load_yaml_file(cls, file_path: Union[str, Path]) -> Optional[Dict[str, Any]]:
+        """
+        Load and parse a YAML file.
+
+        Args:
+            file_path: Path to the YAML file
+
+        Returns:
+            Parsed data as dict, or None if file doesn't exist or parsing fails
+        """
+        file_path = Path(file_path)
+        if not file_path.exists():
+            return None
+
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                return yaml.safe_load(f) or {}
+        except (yaml.YAMLError, IOError) as e:
+            print(f"Error loading YAML file {file_path}: {e}")
+            return None
+
+    @classmethod
+    def save_yaml_file(cls, data: Dict[str, Any], file_path: Union[str, Path], create_dirs: bool = True) -> bool:
+        """
+        Serialize and save data to a YAML file.
+
+        Args:
+            data: Data to serialize
+            file_path: Path to save the file
+            create_dirs: Whether to create parent directories if they don't exist
+
+        Returns:
+            True if successful, False otherwise
+        """
+        file_path = Path(file_path)
+
+        if create_dirs:
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+
+        try:
+            with open(file_path, 'w', encoding='utf-8') as f:
+                yaml.safe_dump(data, f, default_flow_style=False, sort_keys=False, indent=2)
+            return True
+        except (yaml.YAMLError, IOError) as e:
+            print(f"Error saving YAML file {file_path}: {e}")
+            return False
+
+    @classmethod
+    def load_json_file(cls, file_path: Union[str, Path]) -> Optional[Dict[str, Any]]:
+        """
+        Load and parse a JSON file.
+
+        Args:
+            file_path: Path to the JSON file
+
+        Returns:
+            Parsed data as dict, or None if file doesn't exist or parsing fails
+        """
+        file_path = Path(file_path)
+        if not file_path.exists():
+            return None
+
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                return json.load(f) or {}
+        except (json.JSONDecodeError, IOError) as e:
+            print(f"Error loading JSON file {file_path}: {e}")
+            return None
+
+    @classmethod
+    def save_json_file(cls, data: Dict[str, Any], file_path: Union[str, Path], create_dirs: bool = True, indent: int = 2) -> bool:
+        """
+        Serialize and save data to a JSON file.
+
+        Args:
+            data: Data to save
+            file_path: Path to save the file
+            create_dirs: Whether to create parent directories if they don't exist
+            indent: JSON indentation level
+
+        Returns:
+            True if successful, False otherwise
+        """
+        file_path = Path(file_path)
+
+        if create_dirs:
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+
+        try:
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=indent, ensure_ascii=False)
+            return True
+        except (json.JSONEncodeError, IOError) as e:
+            print(f"Error saving JSON file {file_path}: {e}")
+            return False
+
+    @classmethod
+    def load_project_file(cls, filename: str) -> Optional[Dict[str, Any]]:
+        """
+        Load a project-scoped data file.
+
+        Args:
+            filename: Name of the file (e.g., 'project_tasks.yaml')
+
+        Returns:
+            Parsed data or None if file doesn't exist
+        """
+        file_path = cls.PROJECT_DATA_DIR / filename
+        if filename.endswith('.yaml') or filename.endswith('.yml'):
+            return cls.load_yaml_file(file_path)
+        elif filename.endswith('.json'):
+            return cls.load_json_file(file_path)
+        else:
+            print(f"Unsupported file format: {filename}")
+            return None
+
+    @classmethod
+    def save_project_file(cls, data: Dict[str, Any], filename: str) -> bool:
+        """
+        Save data to a project-scoped file.
+
+        Args:
+            data: Data to save
+            filename: Name of the file (e.g., 'project_tasks.yaml')
+
+        Returns:
+            True if successful, False otherwise
+        """
+        file_path = cls.PROJECT_DATA_DIR / filename
+        if filename.endswith('.yaml') or filename.endswith('.yml'):
+            return cls.save_yaml_file(data, file_path)
+        elif filename.endswith('.json'):
+            return cls.save_json_file(data, file_path)
+        else:
+            print(f"Unsupported file format: {filename}")
+            return False
+
+    @classmethod
+    def load_user_file(cls, filename: str) -> Optional[Dict[str, Any]]:
+        """
+        Load a user-scoped data file.
+
+        Args:
+            filename: Name of the file (e.g., 'user_config.yaml')
+
+        Returns:
+            Parsed data or None if file doesn't exist
+        """
+        file_path = cls.USER_DATA_DIR / filename
+        if filename.endswith('.yaml') or filename.endswith('.yml'):
+            return cls.load_yaml_file(file_path)
+        elif filename.endswith('.json'):
+            return cls.load_json_file(file_path)
+        else:
+            print(f"Unsupported file format: {filename}")
+            return None
+
+    @classmethod
+    def save_user_file(cls, data: Dict[str, Any], filename: str) -> bool:
+        """
+        Save data to a user-scoped file.
+
+        Args:
+            data: Data to save
+            filename: Name of the file (e.g., 'user_config.yaml')
+
+        Returns:
+            True if successful, False otherwise
+        """
+        file_path = cls.USER_DATA_DIR / filename
+        if filename.endswith('.yaml') or filename.endswith('.yml'):
+            return cls.save_yaml_file(data, file_path)
+        elif filename.endswith('.json'):
+            return cls.save_json_file(data, file_path)
+        else:
+            print(f"Unsupported file format: {filename}")
+            return False
 
     @classmethod
     def get_schema_dir(cls) -> Path:
         """Get schema directory, handling both development and installed package."""
         try:
-            # Try to use bundled schemas from installed package
-            schema_files = files('prism_task_manager') / 'schemas'
+            schema_files = files('prismtm') / 'schemas'
             return Path(str(schema_files))
         except (ImportError, FileNotFoundError):
             # Fallback to development path
-            return Path(__file__).parent / "schemas"
+            return Path(__file__).parent.parent.parent / "schemas"
 
     @classmethod
     def get_schema_versions(cls) -> List[str]:
@@ -172,7 +435,7 @@ class DataCore:
         """
         detected_version, errors = cls.validate_files_backwards(
             cls.PROJECT_DATA_DIR,
-            cls.PROJECT_FILES
+            cls.REQUIRED_PROJECT_FILES
         )
 
         # Check for missing files

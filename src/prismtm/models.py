@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field, field_validator, model_validator
 from datetime import datetime, timedelta
+import yaml
 from enum import Enum
 from typing import Optional, List, Dict, Union
 import re
@@ -75,7 +76,50 @@ class TaskPath:
     def __str__(self) -> str:
         return self.raw_path
 
-class TaskTree(BaseModel):
+class BaseYAMLModel(BaseModel):
+    """Base model with YAML serialization capabilities."""
+
+    def to_yaml(self) -> str:
+        """Convert model to YAML string."""
+        return yaml.safe_dump(
+            self.model_dump(mode='json', exclude_none=True),
+            default_flow_style=False,
+            sort_keys=False,
+            indent=2
+        )
+
+    @classmethod
+    def from_yaml(cls, yaml_str: str) -> 'BaseYAMLModel':
+        """Create model instance from YAML string."""
+        data = yaml.safe_load(yaml_str)
+        return cls.model_validate(data)
+
+    @classmethod
+    def from_yaml_file(cls, file_path: str) -> Optional['BaseYAMLModel']:
+        """Load model from YAML file."""
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = yaml.safe_load(f)
+                return cls.model_validate(data) if data else None
+        except (FileNotFoundError, yaml.YAMLError, ValueError):
+            return None
+
+    def to_yaml_file(self, file_path: str, create_dirs: bool = True) -> bool:
+        """Save model to YAML file."""
+        try:
+            from pathlib import Path
+            file_path = Path(file_path)
+
+            if create_dirs:
+                file_path.parent.mkdir(parents=True, exist_ok=True)
+
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(self.to_yaml())
+            return True
+        except Exception:
+            return False
+
+class TaskTree(BaseYAMLModel):
     """The Full Task Tree for a project."""
 
     _schema_scope: str = "project"
@@ -279,7 +323,7 @@ class TaskTree(BaseModel):
 
 TaskTree.model_rebuild()
 
-class ProjectBugList(BaseModel):
+class ProjectBugList(BaseYAMLModel):
     """Tracks all bugs across the project."""
 
     _schema_scope: str = "project"
@@ -323,7 +367,7 @@ class ProjectBugList(BaseModel):
 
 ProjectBugList.model_rebuild()
 
-class GlobalBugList(BaseModel):
+class GlobalBugList(BaseYAMLModel):
     """Tracks all bugs across all projects for a user."""
 
     _schema_scope: str = "user"
@@ -373,7 +417,7 @@ class SessionType(Enum):
     BREAK = "break"
     PAUSE = "pause"
 
-class ProjectTimeTracker(BaseModel):
+class ProjectTimeTracker(BaseYAMLModel):
     """Project-scoped time tracking system that logs work sessions independently from task tree structure."""
 
     _schema_scope: str = "project"

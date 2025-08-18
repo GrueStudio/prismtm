@@ -8,24 +8,30 @@ Phase → Milestone → Block → Task → Subtask
 from .version import VERSION, APP_SCHEMA_VERSION
 from .models import (
     TaskStatus,
+    BugStatus,
+    BugSeverity,
     TaskPath,
     TaskTree,
     ProjectBugList,
-    GlobalBugList
+    GlobalBugList,
+    ProjectTimeTracker,
 )
 from .data import DataCore
 
 __version__ = VERSION
-__author__ = "GenGrue"
-__email__ = "dev.grue.studio@gmail.com"
+__author__ = "Your Name"
+__email__ = "your.email@example.com"
 
 __all__ = [
     "VERSION",
     "APP_SCHEMA_VERSION",
     "TaskStatus",
+    "BugStatus",
+    "BugSeverity",
     "TaskPath",
     "TaskTree",
     "ProjectBugList",
     "GlobalBugList",
-    "DataCore"
+    "ProjectTimeTracker",
+    "DataCore",
 ]
