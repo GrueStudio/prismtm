@@ -9,9 +9,11 @@ import os
 import json
 import yaml
 import tempfile
+import random
+import time
 from datetime import datetime
 from pathlib import Path
-from typing import Tuple, Optional, Dict, Any, List, Union
+from typing import Tuple, Optional, Dict, Any, List, Union, Callable
 from packaging import version
 try:
     from importlib.resources import files
@@ -26,6 +28,51 @@ from .models import TaskTree, ProjectBugList, GlobalBugList, ProjectTimeTracker
 from .logs import get_logger
 
 log = get_logger("data")
+
+def retry_on_io_error(max_retries: int = 3, base_delay: float = 0.1, max_delay: float = 2.0):
+    """
+    Decorator to retry I/O operations on transient failures.
+
+    Args:
+        max_retries: Maximum number of retry attempts
+        base_delay: Base delay between retries in seconds
+        max_delay: Maximum delay between retries in seconds
+    """
+    def decorator(func: Callable):
+        def wrapper(*args, **kwargs):
+            last_exception = None
+
+            for attempt in range(max_retries + 1):
+                try:
+                    return func(*args, **kwargs)
+                except (IOError, OSError, PermissionError) as e:
+                    last_exception = e
+
+                    # Don't retry on final attempt
+                    if attempt == max_retries:
+                        break
+
+                    # Calculate exponential backoff with jitter
+                    delay = min(base_delay * (2 ** attempt), max_delay)
+                    jitter = random.uniform(0, delay * 0.1)  # Add up to 10% jitter
+                    total_delay = delay + jitter
+
+                    log.warning(
+                        "I/O operation failed (attempt %d/%d): %s. Retrying in %.2fs...",
+                        attempt + 1, max_retries + 1, e, total_delay
+                    )
+                    time.sleep(total_delay)
+                except Exception as e:
+                    # Don't retry on non-I/O errors
+                    log.error("Non-retryable error in %s: %s", func.__name__, e)
+                    raise
+
+            # All retries exhausted
+            log.error("All retry attempts exhausted for %s: %s", func.__name__, last_exception)
+            raise last_exception
+
+        return wrapper
+    return decorator
 
 class BackupManager:
     """Handles backup and recovery operations for project and user data."""
@@ -340,6 +387,7 @@ class DataCore:
         return BackupManager()
 
     @classmethod
+    @retry_on_io_error(max_retries=3)  # Added retry logic for file loading
     def load_yaml_file(cls, file_path: Union[str, Path]) -> Optional[Dict[str, Any]]:
         """
         Load and parse a YAML file.
@@ -362,6 +410,7 @@ class DataCore:
             return None
 
     @classmethod
+    @retry_on_io_error(max_retries=3)  # Added retry logic for file loading
     def save_yaml_file(cls, data: Dict[str, Any], file_path: Union[str, Path], create_dirs: bool = True) -> bool:
         """
         Serialize and save data to a YAML file using atomic updates.
@@ -411,6 +460,7 @@ class DataCore:
             return False
 
     @classmethod
+    @retry_on_io_error(max_retries=3)  # Added retry logic for file loading
     def load_json_file(cls, file_path: Union[str, Path]) -> Optional[Dict[str, Any]]:
         """
         Load and parse a JSON file.
@@ -433,6 +483,7 @@ class DataCore:
             return None
 
     @classmethod
+    @retry_on_io_error(max_retries=3)  # Added retry logic for file loading
     def save_json_file(cls, data: Dict[str, Any], file_path: Union[str, Path], create_dirs: bool = True, indent: int = 2) -> bool:
         """
         Serialize and save data to a JSON file using atomic updates.
