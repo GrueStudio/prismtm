@@ -11,6 +11,9 @@ import inspect
 import argparse
 from pathlib import Path
 from pydantic import BaseModel
+from src.prismtm.logs import get_logger
+
+log = get_logger("schema_generator")
 
 # Try to import version from package __init__.py
 try:

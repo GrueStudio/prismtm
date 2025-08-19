@@ -20,9 +20,12 @@ except ImportError:
     from importlib_resources import files
 
 from .migrate import MigrationEngine
-from .validate import find_schema_version, validate_file_schema
+from .validate import validate_file_schema
 from .version import APP_SCHEMA_VERSION
 from .models import TaskTree, ProjectBugList, GlobalBugList, ProjectTimeTracker
+from .logs import get_logger
+
+log = get_logger("data")
 
 class BackupManager:
     """Handles backup and recovery operations for project and user data."""
@@ -168,7 +171,7 @@ class BackupManager:
             return True
 
         except Exception as e:
-            print(f"Error during backup restoration: {e}")
+            log.error(f"Error during backup restoration: {e}")
             return False
 
     def cleanup_old_backups(self, keep_count: int = 10) -> int:
@@ -193,7 +196,7 @@ class BackupManager:
                 shutil.rmtree(backup_path)
                 removed_count += 1
             except Exception as e:
-                print(f"Error removing backup {backup_path}: {e}")
+                log.error(f"Error removing backup {backup_path}: {e}")
 
         return removed_count
 
@@ -259,7 +262,7 @@ class PrismContext:
                 self.backup_manager.create_backup("auto_backup")
                 self._backup_created = True
             except Exception as e:
-                print(f"Warning: Could not create automatic backup: {e}")
+                log.warning(f"Warning: Could not create automatic backup: {e}")
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -355,7 +358,7 @@ class DataCore:
             with open(file_path, 'r', encoding='utf-8') as f:
                 return yaml.safe_load(f) or {}
         except (yaml.YAMLError, IOError) as e:
-            print(f"Error loading YAML file {file_path}: {e}")
+            log.error(f"Error loading YAML file {file_path}: {e}")
             return None
 
     @classmethod
@@ -398,7 +401,7 @@ class DataCore:
             return True
 
         except (yaml.YAMLError, IOError, OSError) as e:
-            print(f"Error saving YAML file {file_path}: {e}")
+            log.error(f"Error saving YAML file {file_path}: {e}")
             # Clean up temporary file if it exists
             if temp_file and hasattr(temp_file, 'name'):
                 try:
@@ -426,7 +429,7 @@ class DataCore:
             with open(file_path, 'r', encoding='utf-8') as f:
                 return json.load(f) or {}
         except (json.JSONDecodeError, IOError) as e:
-            print(f"Error loading JSON file {file_path}: {e}")
+            log.error(f"Error loading JSON file {file_path}: {e}")
             return None
 
     @classmethod
@@ -470,7 +473,7 @@ class DataCore:
             return True
 
         except (json.JSONEncodeError, IOError, OSError) as e:
-            print(f"Error saving JSON file {file_path}: {e}")
+            log.error(f"Error saving JSON file {file_path}: {e}")
             # Clean up temporary file if it exists
             if temp_file and hasattr(temp_file, 'name'):
                 try:
@@ -496,7 +499,7 @@ class DataCore:
         elif filename.endswith('.json'):
             return cls.load_json_file(file_path)
         else:
-            print(f"Unsupported file format: {filename}")
+            log.error(f"Error Unsupported file format: {filename}")
             return None
 
     @classmethod
@@ -517,7 +520,7 @@ class DataCore:
         elif filename.endswith('.json'):
             return cls.save_json_file(data, file_path)
         else:
-            print(f"Unsupported file format: {filename}")
+            log.error(f"Error Unsupported file format: {filename}")
             return False
 
     @classmethod
@@ -537,7 +540,7 @@ class DataCore:
         elif filename.endswith('.json'):
             return cls.load_json_file(file_path)
         else:
-            print(f"Unsupported file format: {filename}")
+            log.error(f"Error Unsupported file format: {filename}")
             return None
 
     @classmethod
@@ -558,7 +561,7 @@ class DataCore:
         elif filename.endswith('.json'):
             return cls.save_json_file(data, file_path)
         else:
-            print(f"Unsupported file format: {filename}")
+            log.error(f"Error Unsupported file format: {filename}")
             return False
 
     @classmethod
@@ -739,18 +742,18 @@ class DataCore:
         # Validate project data using backwards validation
         project_valid, project_version, project_errors = cls.validate_project_data()
         if not project_valid:
-            print("Project data validation errors:")
+            log.error("Project data validation errors:")
             for error in project_errors:
                 if not error.startswith("Optional"):
-                    print(f"  - {error}")
+                    log.error(f"  - {error}")
 
         # Validate user data using backwards validation
         user_valid, user_version, user_errors = cls.validate_user_data()
         if not user_valid:
-            print("User data validation errors:")
+            log.error("User data validation errors:")
             for error in user_errors:
                 if not error.startswith("Optional"):
-                    print(f"  - {error}")
+                    log.error(f"  - {error}")
 
         return project_version, user_version, APP_SCHEMA_VERSION
 
@@ -787,7 +790,7 @@ class DataCore:
             engine = MigrationEngine()
             return engine.migrate_project_files(target_version)
         except Exception as e:
-            print(f"Project migration failed: {e}")
+            log.error(f"Error Project migration failed: {e}")
             return False
 
     @classmethod
@@ -808,5 +811,5 @@ class DataCore:
             engine = MigrationEngine()
             return engine.migrate_user_files(target_version)
         except Exception as e:
-            print(f"User migration failed: {e}")
+            log.error(f"Error User migration failed: {e}")
             return False
