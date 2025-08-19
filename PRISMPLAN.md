@@ -53,9 +53,9 @@
   - ✅ Orphan task structures
   - ✅ Documentation
 - 🔄 File management strategy
-  - 🔄 YAML I/O operations
-  - ⏳ Atomic file updates
-  - ⏳ Backup and recovery
+  - ✅ YAML I/O operations
+  - ✅ Atomic file updates
+  - 🔄 Backup and recovery
 
 ##### **⏳ 0.1.2 - CLI Framework Setup**
 *PENDING*

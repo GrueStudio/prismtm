@@ -2,13 +2,14 @@
 DataCore - Central data validation and migration handler for Prism Task Manager.
 
 This module provides the main interface for validating project and user data files,
-checking schema versions, and coordinating migrations.
+checking schema versions, coordinating migrations, and handling backups.
 """
 
 import os
 import json
 import yaml
 import tempfile
+from datetime import datetime
 from pathlib import Path
 from typing import Tuple, Optional, Dict, Any, List, Union
 from packaging import version
@@ -22,6 +23,179 @@ from .migrate import MigrationEngine
 from .validate import find_schema_version, validate_file_schema
 from .version import APP_SCHEMA_VERSION
 from .models import TaskTree, ProjectBugList, GlobalBugList, ProjectTimeTracker
+
+class BackupManager:
+    """Handles backup and recovery operations for project and user data."""
+
+    def __init__(self, project_dir: Path = None, user_dir: Path = None):
+        self.project_dir = project_dir or DataCore.PROJECT_DATA_DIR
+        self.user_dir = user_dir or DataCore.USER_DATA_DIR
+        self.backup_dir = self.project_dir / "backups"
+
+    def create_backup(self, backup_name: str = None, include_user: bool = False) -> str:
+        """
+        Create a timestamped backup of project (and optionally user) data.
+
+        Args:
+            backup_name: Optional custom name for the backup
+            include_user: Whether to include user data in the backup
+
+        Returns:
+            Path to the created backup directory
+        """
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        if backup_name:
+            backup_folder = f"{timestamp}_{backup_name}"
+        else:
+            backup_folder = timestamp
+
+        backup_path = self.backup_dir / backup_folder
+        backup_path.mkdir(parents=True, exist_ok=True)
+
+        # Backup project files
+        project_backup_dir = backup_path / "project"
+        project_backup_dir.mkdir(exist_ok=True)
+
+        if self.project_dir.exists():
+            for file_path in self.project_dir.glob("*.yml"):
+                if file_path.name != "backups":  # Don't backup the backups folder
+                    backup_file = project_backup_dir / file_path.name
+                    backup_file.write_text(file_path.read_text())
+
+        # Backup user files if requested
+        if include_user and self.user_dir.exists():
+            user_backup_dir = backup_path / "user"
+            user_backup_dir.mkdir(exist_ok=True)
+
+            for file_path in self.user_dir.glob("*.yml"):
+                backup_file = user_backup_dir / file_path.name
+                backup_file.write_text(file_path.read_text())
+
+        # Create backup metadata
+        metadata = {
+            "created_at": timestamp,
+            "backup_name": backup_name,
+            "includes_user_data": include_user,
+            "project_files": [f.name for f in project_backup_dir.glob("*.yml")],
+            "user_files": [f.name for f in (backup_path / "user").glob("*.yml")] if include_user else []
+        }
+
+        metadata_file = backup_path / "backup_info.json"
+        with open(metadata_file, 'w') as f:
+            json.dump(metadata, f, indent=2)
+
+        return str(backup_path)
+
+    def list_backups(self) -> List[Dict[str, Any]]:
+        """
+        List all available backups with their metadata.
+
+        Returns:
+            List of backup information dictionaries
+        """
+        backups = []
+
+        if not self.backup_dir.exists():
+            return backups
+
+        for backup_folder in self.backup_dir.iterdir():
+            if backup_folder.is_dir():
+                metadata_file = backup_folder / "backup_info.json"
+                if metadata_file.exists():
+                    try:
+                        with open(metadata_file, 'r') as f:
+                            metadata = json.load(f)
+                        metadata['backup_path'] = str(backup_folder)
+                        metadata['backup_folder'] = backup_folder.name
+                        backups.append(metadata)
+                    except (json.JSONDecodeError, IOError):
+                        # Fallback for backups without metadata
+                        backups.append({
+                            'backup_folder': backup_folder.name,
+                            'backup_path': str(backup_folder),
+                            'created_at': backup_folder.name.split('_')[0] if '_' in backup_folder.name else backup_folder.name,
+                            'backup_name': None,
+                            'includes_user_data': (backup_folder / "user").exists(),
+                            'project_files': [f.name for f in (backup_folder / "project").glob("*.yml")] if (backup_folder / "project").exists() else [],
+                            'user_files': [f.name for f in (backup_folder / "user").glob("*.yml")] if (backup_folder / "user").exists() else []
+                        })
+
+        # Sort by creation time, newest first
+        backups.sort(key=lambda x: x['created_at'], reverse=True)
+        return backups
+
+    def restore_backup(self, backup_folder: str, restore_user: bool = False, files_to_restore: List[str] = None) -> bool:
+        """
+        Restore files from a backup.
+
+        Args:
+            backup_folder: Name of the backup folder to restore from
+            restore_user: Whether to restore user data
+            files_to_restore: Specific files to restore (None = all files)
+
+        Returns:
+            True if restoration was successful
+        """
+        backup_path = self.backup_dir / backup_folder
+        if not backup_path.exists():
+            return False
+
+        try:
+            # Create backup of current state before restoring
+            self.create_backup("pre_restore_backup")
+
+            # Restore project files
+            project_backup_dir = backup_path / "project"
+            if project_backup_dir.exists():
+                self.project_dir.mkdir(parents=True, exist_ok=True)
+
+                for backup_file in project_backup_dir.glob("*.yml"):
+                    if files_to_restore is None or backup_file.name in files_to_restore:
+                        target_file = self.project_dir / backup_file.name
+                        target_file.write_text(backup_file.read_text())
+
+            # Restore user files if requested
+            if restore_user:
+                user_backup_dir = backup_path / "user"
+                if user_backup_dir.exists():
+                    self.user_dir.mkdir(parents=True, exist_ok=True)
+
+                    for backup_file in user_backup_dir.glob("*.yml"):
+                        if files_to_restore is None or backup_file.name in files_to_restore:
+                            target_file = self.user_dir / backup_file.name
+                            target_file.write_text(backup_file.read_text())
+
+            return True
+
+        except Exception as e:
+            print(f"Error during backup restoration: {e}")
+            return False
+
+    def cleanup_old_backups(self, keep_count: int = 10) -> int:
+        """
+        Remove old backups, keeping only the most recent ones.
+
+        Args:
+            keep_count: Number of backups to keep
+
+        Returns:
+            Number of backups removed
+        """
+        backups = self.list_backups()
+        if len(backups) <= keep_count:
+            return 0
+
+        removed_count = 0
+        for backup in backups[keep_count:]:
+            backup_path = Path(backup['backup_path'])
+            try:
+                import shutil
+                shutil.rmtree(backup_path)
+                removed_count += 1
+            except Exception as e:
+                print(f"Error removing backup {backup_path}: {e}")
+
+        return removed_count
 
 class FileScope:
     """Provides access to model files within a scope (project or user)."""
@@ -71,12 +245,21 @@ class FileScope:
 class PrismContext:
     """Main context object providing access to project and user data."""
 
-    def __init__(self):
+    def __init__(self, auto_backup: bool = True):
         self.project = FileScope('project', DataCore.PROJECT_DATA_DIR, self)
         self.user = FileScope('user', DataCore.USER_DATA_DIR, self)
+        self.auto_backup = auto_backup
+        self.backup_manager = BackupManager()
+        self._backup_created = False
 
     def __enter__(self):
         """Context manager entry."""
+        if self.auto_backup and not self._backup_created:
+            try:
+                self.backup_manager.create_backup("auto_backup")
+                self._backup_created = True
+            except Exception as e:
+                print(f"Warning: Could not create automatic backup: {e}")
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -93,7 +276,7 @@ class DataCore:
     Central data validation and migration handler.
 
     Provides version checking, data validation, migration coordination,
-    and serialization/parsing for both project-scoped and user-scoped data files.
+    serialization/parsing, and backup/recovery for both project-scoped and user-scoped data files.
     """
 
     # Current application schema version is now imported from version.py
@@ -125,9 +308,12 @@ class DataCore:
     }
 
     @classmethod
-    def get_context(cls) -> PrismContext:
+    def get_context(cls, auto_backup: bool = True) -> PrismContext:
         """
         Get a context object for accessing project and user data.
+
+        Args:
+            auto_backup: Whether to automatically create backups before changes
 
         Usage:
             with DataCore.get_context() as context:
@@ -138,7 +324,17 @@ class DataCore:
         Returns:
             PrismContext instance that can be used as a context manager
         """
-        return PrismContext()
+        return PrismContext(auto_backup=auto_backup)
+
+    @classmethod
+    def get_backup_manager(cls) -> BackupManager:
+        """
+        Get a BackupManager instance for manual backup operations.
+
+        Returns:
+            BackupManager instance
+        """
+        return BackupManager()
 
     @classmethod
     def load_yaml_file(cls, file_path: Union[str, Path]) -> Optional[Dict[str, Any]]:

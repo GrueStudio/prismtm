@@ -162,11 +162,97 @@ def migrate():
     pass
 
 
-@migrate.command()
-def project():
-    """Migrate project data to latest schema version."""
-    click.echo("🚧 Project migration is coming soon!")
+@main.group()
+def backup():
+    """Backup and recovery commands."""
+    pass
 
+@backup.command()
+@click.option('--name', help='Custom name for the backup')
+@click.option('--include-user/--no-include-user', default=False, help='Include user data in backup')
+def create(name, include_user):
+    """Create a backup of project data."""
+    try:
+        backup_manager = DataCore.get_backup_manager()
+        backup_path = backup_manager.create_backup(name, include_user)
+        click.echo(f"✅ Backup created: {backup_path}")
+
+        if include_user:
+            click.echo("📦 Included user data in backup")
+        else:
+            click.echo("💡 Use --include-user to backup user data as well")
+
+    except Exception as e:
+        click.echo(f"❌ Error creating backup: {e}")
+
+@backup.command()
+def list():
+    """List all available backups."""
+    try:
+        backup_manager = DataCore.get_backup_manager()
+        backups = backup_manager.list_backups()
+
+        if not backups:
+            click.echo("📭 No backups found")
+            return
+
+        click.echo("📦 Available backups:")
+        click.echo("")
+
+        for backup in backups:
+            click.echo(f"🗂️  {backup['backup_folder']}")
+            click.echo(f"   📅 Created: {backup['created_at']}")
+            if backup['backup_name']:
+                click.echo(f"   🏷️  Name: {backup['backup_name']}")
+            click.echo(f"   📋 Project files: {len(backup['project_files'])}")
+            if backup['includes_user_data']:
+                click.echo(f"   👤 User files: {len(backup['user_files'])}")
+            click.echo("")
+
+    except Exception as e:
+        click.echo(f"❌ Error listing backups: {e}")
+
+@backup.command()
+@click.argument('backup_folder')
+@click.option('--include-user/--no-include-user', default=False, help='Restore user data as well')
+@click.option('--files', help='Comma-separated list of specific files to restore')
+@click.confirmation_option(prompt='Are you sure you want to restore from backup?')
+def restore(backup_folder, include_user, files):
+    """Restore from a backup."""
+    try:
+        backup_manager = DataCore.get_backup_manager()
+
+        files_to_restore = None
+        if files:
+            files_to_restore = [f.strip() for f in files.split(',')]
+
+        success = backup_manager.restore_backup(backup_folder, include_user, files_to_restore)
+
+        if success:
+            click.echo("✅ Backup restored successfully")
+            click.echo("💡 A backup of your previous state was created as 'pre_restore_backup'")
+        else:
+            click.echo("❌ Failed to restore backup")
+
+    except Exception as e:
+        click.echo(f"❌ Error restoring backup: {e}")
+
+@backup.command()
+@click.option('--keep', default=10, help='Number of backups to keep (default: 10)')
+@click.confirmation_option(prompt='Are you sure you want to cleanup old backups?')
+def cleanup(keep):
+    """Remove old backups, keeping only the most recent ones."""
+    try:
+        backup_manager = DataCore.get_backup_manager()
+        removed_count = backup_manager.cleanup_old_backups(keep)
+
+        if removed_count > 0:
+            click.echo(f"✅ Removed {removed_count} old backup(s)")
+        else:
+            click.echo("📦 No backups needed to be removed")
+
+    except Exception as e:
+        click.echo(f"❌ Error cleaning up backups: {e}")
 
 if __name__ == "__main__":
     main()
