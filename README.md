@@ -4,7 +4,7 @@
 
 **Hierarchical Task Management for Solo Development**
 
-[![Version](https://img.shields.io/badge/version-0.1.0--dev-orange)](https://github.com/yourusername/prism-task-manager)
+[![Version](https://img.shields.io/badge/version-0.1.1--dev-orange)](https://github.com/yourusername/prism-task-manager)
 [![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://python.org)
 [![License: GPL v2](https://img.shields.io/badge/License-GPL_v2-blue.svg)](LICENSE)
 

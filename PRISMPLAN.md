@@ -57,14 +57,6 @@
   - ✅ Atomic file updates
   - 🔄 Backup and recovery
 
-##### **⏳ 0.1.2 - CLI Framework Setup**
-*PENDING*
-- ⏳ Click framework integration
-- ⏳ Command structure design
-- ⏳ Basic argument parsing
-- ⏳ Error handling framework
-- ⏳ Configuration management
-
 ### **⏳ Future Milestones**
 
 #### **0.2.x - Core Functionality**
