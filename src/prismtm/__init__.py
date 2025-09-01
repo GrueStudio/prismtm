@@ -19,8 +19,6 @@ from .models import (
 from .data import DataCore
 
 __version__ = VERSION
-__author__ = "Your Name"
-__email__ = "your.email@example.com"
 
 __all__ = [
     "VERSION",

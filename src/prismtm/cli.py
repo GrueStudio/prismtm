@@ -5,10 +5,11 @@ Command Line Interface for Prism Task Manager.
 import click
 import os
 from pathlib import Path
-from .version import VERSION
-from .data import DataCore
-from .models import TaskTree, ProjectBugList, GlobalBugList, ProjectTimeTracker
 
+from prismtm.recovery import FatalError
+from .version import VERSION
+from .data import DataCore, BackupManager
+from .models import TaskTree, ProjectBugList, GlobalBugList, ProjectTimeTracker
 
 @click.group()
 @click.version_option(version=VERSION, prog_name="prsm")
@@ -84,6 +85,7 @@ def status():
     click.echo(f"📦 Version: {VERSION}")
     click.echo("📋 Current Phase: Pre-Alpha")
     click.echo("")
+    data = DataCore()
 
     # Check if we're in a Prism project
     prsm_dir = Path.cwd() / '.prsm'
@@ -95,26 +97,14 @@ def status():
     click.echo("📁 Project Status:")
     click.echo(f"   📍 Location: {Path.cwd()}")
 
-    # Check project files
-    required_files = ['tasktree.yml']
-    optional_files = ['time.yml', 'bugs.yml']
-
-    click.echo("📋 Project Files:")
-    for file in required_files:
-        file_path = prsm_dir / file
-        if file_path.exists():
-            click.echo(f"   ✅ {file} (required)")
-        else:
-            click.echo(f"   ❌ {file} (required - missing!)")
-
-    for file in optional_files:
-        file_path = prsm_dir / file
-        if file_path.exists():
-            click.echo(f"   ✅ {file} (optional)")
+    try:
+        data.validate_context()
+    except FatalError as e:
+        click.echo(f"Validation error: {e}")
 
     # Try to load and validate files using DataCore
     try:
-        with DataCore.get_context() as context:
+        with data.load_context() as context:
             click.echo("")
             click.echo("🔍 File Validation:")
 
@@ -169,28 +159,30 @@ def backup():
 
 @backup.command()
 @click.option('--name', help='Custom name for the backup')
-@click.option('--include-user/--no-include-user', default=False, help='Include user data in backup')
-def create(name, include_user):
+@click.option('--user', '-u', 'scope', flag_value='user', help='Backup user scope data')
+@click.option('--project', '-p', 'scope', flag_value='project', default=True, help='Backup project scope data (default)')
+def create(name, scope):
     """Create a backup of project data."""
     try:
-        backup_manager = DataCore.get_backup_manager()
-        backup_path = backup_manager.create_backup(name, include_user)
-        click.echo(f"✅ Backup created: {backup_path}")
-
-        if include_user:
-            click.echo("📦 Included user data in backup")
-        else:
-            click.echo("💡 Use --include-user to backup user data as well")
+        backup_manager = BackupManager()
+        if scope == "project":
+            backup_path = backup_manager.backup_project(name)
+            click.echo(f"✅ Backup created: {backup_path}")
+        elif scope == "user":
+            backup_path = backup_manager.backup_user(name)
+            click.echo(f"✅ Backup created: {backup_path}")
 
     except Exception as e:
         click.echo(f"❌ Error creating backup: {e}")
 
 @backup.command()
-def list():
+@click.option('--user', '-u', 'scope', flag_value='user', help='Backup user scope data')
+@click.option('--project', '-p', 'scope', flag_value='project', default=True, help='Backup project scope data (default)')
+def list(scope):
     """List all available backups."""
     try:
-        backup_manager = DataCore.get_backup_manager()
-        backups = backup_manager.list_backups()
+        backup_manager = BackupManager()
+        backups = backup_manager.list_project_backups() if scope == "project" else backup_manager.list_user_backups()
 
         if not backups:
             click.echo("📭 No backups found")
@@ -202,11 +194,9 @@ def list():
         for backup in backups:
             click.echo(f"🗂️  {backup['backup_folder']}")
             click.echo(f"   📅 Created: {backup['created_at']}")
-            if backup['backup_name']:
-                click.echo(f"   🏷️  Name: {backup['backup_name']}")
-            click.echo(f"   📋 Project files: {len(backup['project_files'])}")
-            if backup['includes_user_data']:
-                click.echo(f"   👤 User files: {len(backup['user_files'])}")
+            if backup['backup_id']:
+                click.echo(f"   🏷️  Name: {backup['backup_id']}")
+            click.echo(f"   📋 Project files: {backup['files_count']}")
             click.echo("")
 
     except Exception as e:
@@ -214,19 +204,14 @@ def list():
 
 @backup.command()
 @click.argument('backup_folder')
-@click.option('--include-user/--no-include-user', default=False, help='Restore user data as well')
-@click.option('--files', help='Comma-separated list of specific files to restore')
+@click.option('--user', '-u', 'scope', flag_value='user', help='Backup user scope data')
+@click.option('--project', '-p', 'scope', flag_value='project', default=True, help='Backup project scope data (default)')
 @click.confirmation_option(prompt='Are you sure you want to restore from backup?')
-def restore(backup_folder, include_user, files):
+def restore(backup_folder, scope, files):
     """Restore from a backup."""
     try:
-        backup_manager = DataCore.get_backup_manager()
-
-        files_to_restore = None
-        if files:
-            files_to_restore = [f.strip() for f in files.split(',')]
-
-        success = backup_manager.restore_backup(backup_folder, include_user, files_to_restore)
+        backup_manager = BackupManager()
+        success = backup_manager.restore_user_backup(backup_folder) if scope =="user" else backup_manager.restore_project_backup(backup_folder)
 
         if success:
             click.echo("✅ Backup restored successfully")

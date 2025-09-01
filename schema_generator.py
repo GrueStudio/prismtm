@@ -11,17 +11,17 @@ import inspect
 import argparse
 from pathlib import Path
 from pydantic import BaseModel
-from src.prismtm.logs import get_logger
+from prismtm.logs import get_logger
 
 log = get_logger("schema_generator")
 
 # Try to import version from package __init__.py
 try:
-    from src.prismtm.version import VERSION, APP_SCHEMA_VERSION
+    from prismtm.version import VERSION, APP_SCHEMA_VERSION
     DEFAULT_VERSION = VERSION
 except (ImportError, ValueError):
     try:
-        from src.prismtm.version import VERSION, APP_SCHEMA_VERSION
+        from prismtm.version import VERSION, APP_SCHEMA_VERSION
         DEFAULT_VERSION = VERSION
     except ImportError:
         DEFAULT_VERSION = "0.0.0"
